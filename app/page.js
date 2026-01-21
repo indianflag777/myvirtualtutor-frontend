@@ -192,7 +192,7 @@ const sessionData = await sessionRes.json();
 const EPHEMERAL_KEY = sessionData.value;
 
 // 2) Exchange SDP directly with OpenAI using the ephemeral key
-const sdpRes = await fetch("https://api.openai.com/v1/realtime", {
+const sdpRes = await fetch("https://api.openai.com/v1/realtime/calls", {
   method: "POST",
   headers: {
     Authorization: `Bearer ${EPHEMERAL_KEY}`,
