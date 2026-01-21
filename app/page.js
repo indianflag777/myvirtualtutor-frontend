@@ -178,19 +178,32 @@ sendEvent({
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-const r = await fetch(`${SERVER_BASE}/session`, {
+// 1) Get ephemeral key from your backend
+logSystem("Session ready. Speak or type to start.");
+// 1) Get ephemeral key from your backend
+const sessionRes = await fetch(`${SERVER_BASE}/session`, {
   method: "POST",
-  mode: "cors",
-  headers: { "Content-Type": "application/sdp" },
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({}),
+});
+if (!sessionRes.ok) throw new Error(await sessionRes.text());
+
+const sessionData = await sessionRes.json();
+const EPHEMERAL_KEY = sessionData.value;
+
+// 2) Exchange SDP directly with OpenAI using the ephemeral key
+const sdpRes = await fetch("https://api.openai.com/v1/realtime", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${EPHEMERAL_KEY}`,
+    "Content-Type": "application/sdp",
+  },
   body: offer.sdp,
 });
+if (!sdpRes.ok) throw new Error(await sdpRes.text());
 
-      if (!r.ok) throw new Error(await r.text());
-
-      const answerSdp = await r.text();
-      await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
-
-      logSystem("Session ready. Speak or type to start.");
+const answerSdp = await sdpRes.text();
+await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
     } catch (err) {
       logSystem(`Connection failed: ${String(err?.message || err)}`);
       disconnect();
