@@ -192,6 +192,7 @@ const sessionRes = await fetch(`${SERVER_BASE}/session`, {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({}),
 });
+console.log("[MVT] /session status:", sessionRes.status);
 if (!sessionRes.ok) throw new Error(await sessionRes.text());
 
 const sessionData = await sessionRes.json();
@@ -203,6 +204,7 @@ const ansRes = await fetch(`${SERVER_BASE}/webrtc/answer`, {
   headers: { "Content-Type": "application/sdp" },
   body: offer.sdp,
 });
+console.log("[MVT] /webrtc/answer status:", ansRes.status);
 if (!ansRes.ok) throw new Error(await ansRes.text());
 
 const answerSdp = await ansRes.text();
