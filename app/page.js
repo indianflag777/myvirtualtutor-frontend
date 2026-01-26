@@ -134,6 +134,8 @@ export default function Page() {
   }
 
   async function connect() {
+    // DEBUG: connection diagnostics (temporary)
+    console.log("[MVT] connect() clicked");
     if (connecting || connected) return;
 
     setConnecting(true);
