@@ -145,8 +145,21 @@ export default function Page() {
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
 
+      pc.onconnectionstatechange = () => {
+        console.log("[MVT] pc.connectionState:", pc.connectionState);
+      };
+      pc.oniceconnectionstatechange = () => {
+        console.log("[MVT] pc.iceConnectionState:", pc.iceConnectionState);
+      };
+      pc.onicegatheringstatechange = () => {
+        console.log("[MVT] pc.iceGatheringState:", pc.iceGatheringState);
+      };
       pc.ontrack = (e) => {
         if (audioRef.current) audioRef.current.srcObject = e.streams[0];
+        try {
+          audioRef.current.play?.().catch(() => {});
+        } catch {}
+
       };
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
