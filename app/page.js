@@ -171,15 +171,32 @@ export default function Page() {
       dc.addEventListener("open", () => {
         logSystem("Connected. Initializing tutor...");
 
-sendEvent({
-  type: "response.create",
-  response: {
-    output_modalities: ["text"],
-    instructions: tutorInstructions,
-  },
-});
-          
+        // Mark UI connected as soon as the datachannel is open
         setConnected(true);
+        setConnecting(false);
+
+        // Send a quick greeting prompt so the tutor speaks immediately
+        sendEvent({
+          type: "conversation.item.create",
+          item: {
+            type: "message",
+            role: "user",
+            content: [
+              { type: "input_text", text: "Say hello and ask what math topic and grade we should work on." },
+            ],
+          },
+        });
+
+        // Ask for BOTH audio + text so voice + chat work together
+        sendEvent({
+          type: "response.create",
+          response: {
+            output_modalities: ["audio", "text"],
+            instructions: tutorInstructions,
+          },
+        });
+      });
+setConnected(true);
         setConnecting(false);
       });
 
@@ -264,7 +281,7 @@ logSystem("Session ready. Speak or type to start.");
     sendEvent({
       type: "response.create",
       response: {
-        output_modalities: ["text"],
+        output_modalities: ["audio", "text"],
         instructions: tutorInstructions,
       },
     });
