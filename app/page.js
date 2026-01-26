@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+const DEBUG = process.env.NEXT_PUBLIC_DEBUG === "1";
 
 const SERVER_BASE =
   process.env.NEXT_PUBLIC_SERVER_BASE || "http://127.0.0.1:3001";
@@ -82,7 +83,7 @@ export default function Page() {
       return;
     }
 
-    console.log("OAI EVENT:", evt);
+    if (DEBUG) console.log("OAI EVENT:", evt);
 
     if (evt.type === "error") {
       const msg = safeGet(evt, ["error", "message"]) || JSON.stringify(evt);
@@ -169,7 +170,7 @@ sendEvent({
 
       dc.addEventListener("message", (ev) => {
   // Log raw data first so we know events are arriving at all
-  console.log("OAI RAW:", ev.data);
+  if (DEBUG) console.log("OAI RAW:", ev.data);
 
   // Then try to parse + handle normally
   try {
