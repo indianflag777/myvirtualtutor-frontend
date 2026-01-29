@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-const DEBUG = process.env.NEXT_PUBLIC_DEBUG === "1";
 
 const SERVER_BASE =
   process.env.NEXT_PUBLIC_SERVER_BASE || "http://127.0.0.1:3001";
@@ -14,7 +13,6 @@ Mode: TEACHING ONLY.
 - Do not give answers immediately.
 - Teach step-by-step using hints.
 - Ask short check-in questions frequently.
-- If the student asks for the answer, guide them to derive it.
 
 Student:
 - Grade: ${grade}
@@ -22,18 +20,15 @@ Student:
 
 Style:
 - Keep responses short, clear, and encouraging.
-- Use simple examples.
-- No personal data requests.
 `.trim();
 }
 
-function safeGet(obj, path) {
-  let cur = obj;
-  for (const key of path) {
-    if (cur == null) return undefined;
-    cur = cur[key];
+function safeJsonParse(s) {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
   }
-  return cur;
 }
 
 export default function Page() {
@@ -62,190 +57,13 @@ export default function Page() {
     setMessages((m) => [...m, { role: "user", text }]);
   }
   function addAssistant(text) {
-    setMessages((m) => {
-      const last = m[m.length - 1];
-      if (last?.role === "assistant" && last?.text === text) return m;
-      return [...m, { role: "assistant", text }];
-    });
+    setMessages((m) => [...m, { role: "assistant", text }]);
   }
 
   function sendEvent(evt) {
     const dc = dcRef.current;
     if (!dc || dc.readyState !== "open") return;
     dc.send(JSON.stringify(evt));
-  }
-
-  function handleServerEvent(e) {
-    let evt;
-    try {
-      evt = JSON.parse(e.data);
-    } catch {
-      return;
-    }
-
-    if (DEBUG) console.log("OAI EVENT:", evt);
-
-    if (evt.type === "error") {
-      const msg = safeGet(evt, ["error", "message"]) || JSON.stringify(evt);
-      addAssistant(`(Error) ${msg}`);
-      return;
-    }
-
-    const deltaCandidates = [
-      evt?.delta,
-      safeGet(evt, ["text", "delta"]),
-      safeGet(evt, ["response", "delta"]),
-      safeGet(evt, ["response", "output_text", "delta"]),
-      safeGet(evt, ["response", "output", 0, "content", 0, "delta"]),
-    ];
-
-    const delta = deltaCandidates.find((d) => typeof d === "string" && d.length);
-
-    if (String(evt.type || "").includes("delta") && typeof delta === "string") {
-      setMessages((prev) => {
-        const copy = [...prev];
-        const last = copy[copy.length - 1];
-        if (last && last.role === "assistant") {
-          copy[copy.length - 1] = { ...last, text: (last.text || "") + delta };
-        } else {
-          copy.push({ role: "assistant", text: delta });
-        }
-        return copy;
-      });
-      return;
-    }
-
-    if (evt.type === "response.done") {
-      const out = safeGet(evt, ["response", "output"]) || [];
-      let finalText = "";
-
-      for (const item of out) {
-        if (item?.type === "message" && Array.isArray(item?.content)) {
-          for (const c of item.content) {
-            if (c?.type === "output_text" && typeof c?.text === "string") {
-              finalText += c.text;
-            }
-          }
-        }
-      }
-
-      if (finalText.trim()) addAssistant(finalText.trim());
-    }
-  }
-
-  async function connect() {
-    // DEBUG: connection diagnostics (temporary)
-    console.log("[MVT] connect() clicked");
-    if (connecting || connected) return;
-
-    setConnecting(true);
-    logSystem("Connecting voice + chat session...");
-
-    try {
-      const pc = new RTCPeerConnection();
-      pcRef.current = pc;
-
-      pc.onconnectionstatechange = () => {
-        console.log("[MVT] pc.connectionState:", pc.connectionState);
-      };
-      pc.oniceconnectionstatechange = () => {
-        console.log("[MVT] pc.iceConnectionState:", pc.iceConnectionState);
-      };
-      pc.onicegatheringstatechange = () => {
-        console.log("[MVT] pc.iceGatheringState:", pc.iceGatheringState);
-      };
-      pc.ontrack = (e) => {
-        if (audioRef.current) audioRef.current.srcObject = e.streams[0];
-        try {
-          audioRef.current.play?.().catch(() => {});
-        } catch {}
-
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      for (const track of stream.getTracks()) pc.addTrack(track, stream);
-
-      const dc = pc.createDataChannel("oai-events");
-      dcRef.current = dc;
-
-      dc.addEventListener("open", () => {
-        logSystem("Connected. Initializing tutor...");
-
-        // Mark UI connected as soon as the datachannel is open
-        setConnected(true);
-        setConnecting(false);
-
-        // Send a quick greeting prompt so the tutor speaks immediately
-        sendEvent({
-          type: "conversation.item.create",
-          item: {
-            type: "message",
-            role: "user",
-            content: [
-              { type: "input_text", text: "Say hello and ask what math topic and grade we should work on." },
-            ],
-          },
-        });
-
-        // Ask for BOTH audio + text so voice + chat work together
-        sendEvent({
-          type: "response.create",
-          response: {
-            output_modalities: ["audio", "text"],
-            instructions: tutorInstructions,
-          },
-        });
-      });
-setConnected(true);
-        setConnecting(false);
-      });
-
-      dc.addEventListener("message", (ev) => {
-  // Log raw data first so we know events are arriving at all
-  if (DEBUG) console.log("OAI RAW:", ev.data);
-
-  // Then try to parse + handle normally
-  try {
-    handleServerEvent(ev);
-  } catch (err) {
-    console.log("handleServerEvent error:", err);
-  }
-});
-
-      pc.addTransceiver("audio", { direction: "recvonly" });
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-// 1) Get ephemeral key from your backend
-const sessionRes = await fetch(`${SERVER_BASE}/session`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({}),
-});
-console.log("[MVT] /session status:", sessionRes.status);
-if (!sessionRes.ok) throw new Error(await sessionRes.text());
-
-const sessionData = await sessionRes.json();
-const EPHEMERAL_KEY = sessionData.value;
-
-// 2) Get SDP answer from your backend (server-side OpenAI call)
-const ansRes = await fetch(`${SERVER_BASE}/webrtc/answer`, {
-  method: "POST",
-  headers: { "Content-Type": "application/sdp" },
-  body: offer.sdp,
-});
-console.log("[MVT] /webrtc/answer status:", ansRes.status);
-if (!ansRes.ok) throw new Error(await ansRes.text());
-
-const answerSdp = await ansRes.text();
-await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
-logSystem("Session ready. Speak or type to start.");
-    } catch (err) {
-      logSystem(`Connection failed: ${String(err?.message || err)}`);
-      disconnect();
-      setConnecting(false);
-      setConnected(false);
-    }
   }
 
   function disconnect() {
@@ -260,6 +78,157 @@ logSystem("Session ready. Speak or type to start.");
     setConnected(false);
     setConnecting(false);
     logSystem("Disconnected.");
+  }
+
+  async function connect() {
+    console.log("[MVT] connect() clicked");
+    if (connecting || connected) return;
+
+    setConnecting(true);
+    logSystem("Connecting voice + chat session...");
+
+    try {
+      const pc = new RTCPeerConnection();
+      pcRef.current = pc;
+pc.onconnectionstatechange = () => {
+  console.log("[MVT] pc.connectionState:", pc.connectionState);
+
+  if (pc.connectionState === "connected") {
+    setConnected(true);
+    setConnecting(false);
+    logSystem("Connected. Waiting for tutor audio...");
+  }
+};
+      pc.oniceconnectionstatechange = () => {
+        console.log("[MVT] pc.iceConnectionState:", pc.iceConnectionState);
+      };
+
+      // Remote audio playback
+      pc.ontrack = (e) => {
+        const stream = e.streams?.[0];
+        if (!stream) return;
+        if (!audioRef.current) return;
+
+        audioRef.current.srcObject = stream;
+        audioRef.current.autoplay = true;
+        audioRef.current.playsInline = true;
+        audioRef.current.muted = false;
+
+        audioRef.current.play?.().catch(() => {
+          logSystem("Audio blocked by browser. Click the page once and try again.");
+        });
+      };
+
+      // Mic input
+      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStream.getTracks().forEach((t) => pc.addTrack(t, micStream));
+
+      // Receive tutor audio
+      pc.addTransceiver("audio", { direction: "recvonly" });
+
+      // Data channel for events
+      const dc = pc.createDataChannel("oai-events");
+      dcRef.current = dc;
+
+      dc.addEventListener("open", () => {
+        logSystem("Connected. Initializing tutor...");
+        setConnected(true);
+        setConnecting(false);
+
+        // Make tutor speak immediately
+        sendEvent({
+          type: "conversation.item.create",
+          item: {
+            type: "message",
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: "Say hello and ask what math topic and grade we should work on.",
+              },
+            ],
+          },
+        });
+
+        sendEvent({
+          type: "response.create",
+          response: {
+            output_modalities: ["audio", "text"],
+            instructions: tutorInstructions,
+          },
+        });
+      });
+
+      dc.addEventListener("message", (ev) => {
+        const evt = safeJsonParse(ev.data);
+        if (!evt) return;
+
+        // Handle common text fields
+        const delta =
+          evt?.delta ||
+          evt?.text?.delta ||
+          evt?.response?.delta ||
+          evt?.response?.output_text?.delta;
+
+        if (typeof delta === "string" && delta.length) {
+          // Stream deltas into last assistant msg
+          setMessages((prev) => {
+            const copy = [...prev];
+            const last = copy[copy.length - 1];
+            if (last?.role === "assistant") {
+              copy[copy.length - 1] = { ...last, text: (last.text || "") + delta };
+            } else {
+              copy.push({ role: "assistant", text: delta });
+            }
+            return copy;
+          });
+          return;
+        }
+
+        // Final text (if present)
+        const finalText =
+          evt?.response?.output_text ||
+          evt?.response?.output?.[0]?.content?.[0]?.text;
+
+        if (typeof finalText === "string" && finalText.trim()) {
+          addAssistant(finalText.trim());
+        }
+
+        if (evt?.type === "error") {
+          addAssistant(`(Error) ${evt?.error?.message || "Unknown error"}`);
+        }
+      });
+
+      // Offer/Answer via backend
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      const sessionRes = await fetch(`${SERVER_BASE}/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      console.log("[MVT] /session status:", sessionRes.status);
+      if (!sessionRes.ok) throw new Error(await sessionRes.text());
+
+      const ansRes = await fetch(`${SERVER_BASE}/webrtc/answer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/sdp" },
+        body: offer.sdp,
+      });
+      console.log("[MVT] /webrtc/answer status:", ansRes.status);
+      if (!ansRes.ok) throw new Error(await ansRes.text());
+
+      const answerSdp = await ansRes.text();
+      await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+
+      logSystem("Session ready. Speak or type to start.");
+    } catch (err) {
+      logSystem(`Connection failed: ${String(err?.message || err)}`);
+      disconnect();
+      setConnecting(false);
+      setConnected(false);
+    }
   }
 
   function sendText() {
@@ -298,105 +267,49 @@ logSystem("Session ready. Speak or type to start.");
         <div style={{ display: "grid", gap: 10 }}>
           <label style={{ display: "grid", gap: 6 }}>
             <span style={{ fontSize: 12, opacity: 0.85 }}>Grade</span>
-            <select
-              value={grade}
-              onChange={(e) => setGrade(e.target.value)}
-              disabled={connected || connecting}
-              style={{ padding: 10, borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "#111b30", color: "#e8eefc" }}
-            >
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-              <option value="6">6</option>
-              <option value="7">7</option>
-              <option value="8">8</option>
+            <select value={grade} onChange={(e) => setGrade(e.target.value)}>
+              {["3","4","5","6","7","8"].map((g) => (
+                <option key={g} value={g}>{g}</option>
+              ))}
             </select>
           </label>
 
           <label style={{ display: "grid", gap: 6 }}>
             <span style={{ fontSize: 12, opacity: 0.85 }}>Topic</span>
-            <input
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              disabled={connected || connecting}
-              placeholder="Fractions, Decimals, Pre-algebra..."
-              style={{ padding: 10, borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "#111b30", color: "#e8eefc" }}
-            />
+            <input value={topic} onChange={(e) => setTopic(e.target.value)} />
           </label>
 
           {!connected ? (
-            <button
-              onClick={connect}
-              disabled={connecting}
-              style={{ padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.18)", background: connecting ? "#1a2642" : "#1f7a4a", color: "#fff", cursor: connecting ? "not-allowed" : "pointer", fontWeight: 600 }}
-            >
-              {connecting ? "Connecting..." : "Start Voice + Chat Session"}
+            <button onClick={connect} disabled={connecting}>
+              {connecting ? "Initializing tutor..." : "Connect to Live Tutor"}
             </button>
           ) : (
-            <button
-              onClick={disconnect}
-              style={{ padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.18)", background: "#8b2a2a", color: "#fff", cursor: "pointer", fontWeight: 600 }}
-            >
-              End Session
-            </button>
+            <button onClick={disconnect}>Disconnect</button>
           )}
 
-          <audio ref={audioRef} autoPlay style={{ width: "100%" }} />
+          <div style={{ display: "grid", gap: 6 }}>
+            <span style={{ fontSize: 12, opacity: 0.85 }}>Message</span>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => (e.key === "Enter" ? sendText() : null)}
+              placeholder="Type a math question..."
+            />
+            <button onClick={sendText} disabled={!connected}>
+              Send
+            </button>
+          </div>
         </div>
+
+        <audio ref={audioRef} autoPlay playsInline />
       </div>
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <div style={{ flex: 1, padding: 16, overflow: "auto" }}>
-          {messages.map((m, idx) => (
-            <div key={idx} style={{ marginBottom: 12, display: "flex" }}>
-              <div
-                style={{
-                  maxWidth: 900,
-                  padding: 12,
-                  borderRadius: 14,
-                  background:
-                    m.role === "user"
-                      ? "rgba(31,122,74,0.25)"
-                      : m.role === "assistant"
-                      ? "rgba(255,255,255,0.06)"
-                      : "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
-                <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 4 }}>
-                  {m.role === "user" ? "You" : m.role === "assistant" ? "Tutor" : "System"}
-                </div>
-                <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.45 }}>{m.text}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ padding: 16, borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: 10 }}>
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={!connected}
-            placeholder={connected ? "Type a question (or just speak)..." : "Connect first..."}
-            onKeyDown={(e) => { if (e.key === "Enter") sendText(); }}
-            style={{ flex: 1, padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.15)", background: "#111b30", color: "#e8eefc" }}
-          />
-          <button
-            onClick={sendText}
-            disabled={!connected || !input.trim()}
-            style={{
-              padding: "12px 16px",
-              borderRadius: 12,
-              border: "1px solid rgba(255,255,255,0.18)",
-              background: !connected || !input.trim() ? "#1a2642" : "#2b5bd7",
-              color: "#fff",
-              cursor: !connected || !input.trim() ? "not-allowed" : "pointer",
-              fontWeight: 600,
-            }}
-          >
-            Send
-          </button>
-        </div>
+      <div style={{ flex: 1, padding: 16, overflow: "auto" }}>
+        {messages.map((m, i) => (
+          <div key={i} style={{ marginBottom: 10, opacity: m.role === "system" ? 0.85 : 1 }}>
+            <b style={{ textTransform: "capitalize" }}>{m.role}:</b> {m.text}
+          </div>
+        ))}
       </div>
     </div>
   );
