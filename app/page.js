@@ -103,23 +103,23 @@ const maybeStartTutor = () => {
   logSystem("Tutor ready. Say hi!");
 
   //sendEvent({
-    type: "conversation.item.create",
-    item: {
-      type: "message",
-      role: "user",
-      content: [
-        { type: "input_text", text: "Say hello and ask what math topic and grade we should work on." }
-      ],
-    },
-  });
-
-  //sendEvent({
-    type: "response.create",
-    response: {
-      output_modalities: ["audio"],
-      instructions: tutorInstructions,
-    },
-  });
+//     type: "conversation.item.create",
+//     item: {
+//       type: "message",
+//       role: "user",
+//       content: [
+//         { type: "input_text", text: "Say hello and ask what math topic and grade we should work on." }
+//       ],
+//     },
+//   });
+// 
+//   //sendEvent({
+//     type: "response.create",
+//     response: {
+//       output_modalities: ["audio"],
+//       instructions: tutorInstructions,
+//     },
+//   });
 };
 // --- end tutor start gate ---
 pc.onconnectionstatechange = () => {
@@ -172,26 +172,26 @@ pc.onconnectionstatechange = () => {
 
         // Make tutor speak immediately
         sendEvent({
-          type: "conversation.item.create",
-          item: {
-            type: "message",
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: "Say hello and ask what math topic and grade we should work on.",
-              },
-            ],
-          },
-        });
-
-        sendEvent({
-          type: "response.create",
-          response: {
-            output_modalities: ["audio"],
-            instructions: tutorInstructions,
-          },
-        });
+//           type: "conversation.item.create",
+//           item: {
+//             type: "message",
+//             role: "user",
+//             content: [
+//               {
+//                 type: "input_text",
+//                 text: "Say hello and ask what math topic and grade we should work on.",
+//               },
+//             ],
+//           },
+//         });
+// 
+//         sendEvent({
+//           type: "response.create",
+//           response: {
+//             output_modalities: ["audio"],
+//             instructions: tutorInstructions,
+//           },
+//         });
       });
 
       dc.addEventListener("message", (ev) => {
