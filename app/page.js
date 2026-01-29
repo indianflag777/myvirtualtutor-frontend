@@ -90,6 +90,38 @@ export default function Page() {
     try {
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
+// --- tutor start gate (DO NOT EDIT) ---
+let dcOpen = false;
+let remoteReady = false;
+let started = false;
+
+const maybeStartTutor = () => {
+  if (started) return;
+  if (!dcOpen || !remoteReady) return;
+  started = true;
+
+  logSystem("Tutor ready. Say hi!");
+
+  sendEvent({
+    type: "conversation.item.create",
+    item: {
+      type: "message",
+      role: "user",
+      content: [
+        { type: "input_text", text: "Say hello and ask what math topic and grade we should work on." }
+      ],
+    },
+  });
+
+  sendEvent({
+    type: "response.create",
+    response: {
+      output_modalities: ["audio", "text"],
+      instructions: tutorInstructions,
+    },
+  });
+};
+// --- end tutor start gate ---
 pc.onconnectionstatechange = () => {
   console.log("[MVT] pc.connectionState:", pc.connectionState);
 
@@ -134,6 +166,9 @@ pc.onconnectionstatechange = () => {
         logSystem("Connected. Initializing tutor...");
         setConnected(true);
         setConnecting(false);
+
+        dcOpen = true;
+        maybeStartTutor();
 
         // Make tutor speak immediately
         sendEvent({
@@ -221,6 +256,8 @@ pc.onconnectionstatechange = () => {
 
       const answerSdp = await ansRes.text();
       await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+      remoteReady = true;
+      maybeStartTutor();
 
       logSystem("Session ready. Speak or type to start.");
     } catch (err) {
