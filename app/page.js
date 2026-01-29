@@ -213,7 +213,7 @@ await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
 sendEvent({
   type: "response.create",
   response: {
-    output_modalities: ["audio"],
+    output_modalities: ["text"],
     instructions: tutorInstructions,
   },
 });
