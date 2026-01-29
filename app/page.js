@@ -188,7 +188,7 @@ pc.onconnectionstatechange = () => {
         sendEvent({
           type: "response.create",
           response: {
-            output_modalities: ["audio", "text"],
+            output_modalities: ["audio"],
             instructions: tutorInstructions,
           },
         });
@@ -287,7 +287,7 @@ pc.onconnectionstatechange = () => {
     sendEvent({
       type: "response.create",
       response: {
-        output_modalities: ["audio", "text"],
+        output_modalities: ["audio"],
         instructions: tutorInstructions,
       },
     });
