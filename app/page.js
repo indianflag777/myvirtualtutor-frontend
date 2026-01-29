@@ -209,6 +209,15 @@ if (!ansRes.ok) throw new Error(await ansRes.text());
 
 const answerSdp = await ansRes.text();
 await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+// Kickoff: ask tutor to speak once (audio-only)
+sendEvent({
+  type: "response.create",
+  response: {
+    output_modalities: ["audio"],
+    instructions: tutorInstructions,
+  },
+});
+
 logSystem("Session ready. Speak or type to start.");
     } catch (err) {
       logSystem(`Connection failed: ${String(err?.message || err)}`);
