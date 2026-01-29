@@ -145,21 +145,8 @@ export default function Page() {
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
 
-      pc.onconnectionstatechange = () => {
-        console.log("[MVT] pc.connectionState:", pc.connectionState);
-      };
-      pc.oniceconnectionstatechange = () => {
-        console.log("[MVT] pc.iceConnectionState:", pc.iceConnectionState);
-      };
-      pc.onicegatheringstatechange = () => {
-        console.log("[MVT] pc.iceGatheringState:", pc.iceGatheringState);
-      };
       pc.ontrack = (e) => {
         if (audioRef.current) audioRef.current.srcObject = e.streams[0];
-        try {
-          audioRef.current.play?.().catch(() => {});
-        } catch {}
-
       };
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -171,32 +158,15 @@ export default function Page() {
       dc.addEventListener("open", () => {
         logSystem("Connected. Initializing tutor...");
 
-        // Mark UI connected as soon as the datachannel is open
+sendEvent({
+  type: "response.create",
+  response: {
+    output_modalities: ["text"],
+    instructions: tutorInstructions,
+  },
+});
+          
         setConnected(true);
-        setConnecting(false);
-
-        // Send a quick greeting prompt so the tutor speaks immediately
-        sendEvent({
-          type: "conversation.item.create",
-          item: {
-            type: "message",
-            role: "user",
-            content: [
-              { type: "input_text", text: "Say hello and ask what math topic and grade we should work on." },
-            ],
-          },
-        });
-
-        // Ask for BOTH audio + text so voice + chat work together
-        sendEvent({
-          type: "response.create",
-          response: {
-            output_modalities: ["audio", "text"],
-            instructions: tutorInstructions,
-          },
-        });
-      });
-setConnected(true);
         setConnecting(false);
       });
 
@@ -281,7 +251,7 @@ logSystem("Session ready. Speak or type to start.");
     sendEvent({
       type: "response.create",
       response: {
-        output_modalities: ["audio", "text"],
+        output_modalities: ["text"],
         instructions: tutorInstructions,
       },
     });
