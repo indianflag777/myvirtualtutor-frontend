@@ -242,6 +242,8 @@ logSystem("Session ready. Speak or type to start.");
   }
 
   function sendText() {
+    console.log("[MVT] sendText clicked. connected=", connected, "connecting=", connecting, "dc=", dcRef.current?.readyState);
+    console.log("[MVT] text=", input);
     const text = input.trim();
     if (!text) return;
 
