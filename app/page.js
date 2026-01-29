@@ -102,7 +102,7 @@ const maybeStartTutor = () => {
 
   logSystem("Tutor ready. Say hi!");
 
-  sendEvent({
+  //sendEvent({
     type: "conversation.item.create",
     item: {
       type: "message",
@@ -113,7 +113,7 @@ const maybeStartTutor = () => {
     },
   });
 
-  sendEvent({
+  //sendEvent({
     type: "response.create",
     response: {
       output_modalities: ["audio"],
