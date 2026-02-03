@@ -122,6 +122,10 @@ export default function Page() {
     }
 
     if (evt.type === "response.done") {
+  // Do nothing. We already render streamed text via response.output_text.delta.
+  // Prevents duplicate / mixed-language finalized payloads from being appended.
+  return;
+}
       const out = safeGet(evt, ["response", "output"]) || [];
       let finalText = "";
 
