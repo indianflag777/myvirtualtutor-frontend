@@ -107,7 +107,7 @@ export default function Page() {
 
     const delta = deltaCandidates.find((d) => typeof d === "string" && d.length);
 
-    if (String(evt.type || "").includes("delta") && typeof delta === "string") {
+    if (evt?.type === "response.output_text.delta" && typeof delta === "string") {
       setMessages((prev) => {
         const copy = [...prev];
         const last = copy[copy.length - 1];
