@@ -159,6 +159,26 @@ export default function Page() {
       for (const track of stream.getTracks()) pc.addTrack(track, stream);
 
       const dc = pc.createDataChannel("oai-events");
+const sendEvent = (evt) => {
+  try {
+    dc.send(JSON.stringify(evt));
+  } catch (e) {
+    console.error("sendEvent failed", e);
+  }
+};
+
+dc.onopen = () => {
+  // Force session-wide instruction update (sticks for Realtime)
+  sendEvent({
+    type: "session.update",
+    session: {
+      instructions: tutorInstructions,
+    },
+  });
+
+  logSystem("Data channel open. English-only instructions applied.");
+};
+
       dcRef.current = dc;
 
       dc.addEventListener("open", () => {
