@@ -1,0 +1,42 @@
+{
+  "type": "whiteboard.ops",
+  "version": "1.0",
+  "board": {
+    "width": 1024,
+    "height": 576,
+    "unit": "px",
+    "background": "#0b0f19"
+  },
+  "defaults": {
+    "stroke": "#e6eaf2",
+    "strokeWidth": 3,
+    "fontFamily": "Inter",
+    "fontSize": 26
+  },
+  "ops": [
+    {
+      "op": "add",
+      "id": "title",
+      "kind": "text",
+      "props": {
+        "x": 80,
+        "y": 60,
+        "text": "Add Fractions",
+        "fontSize": 36,
+        "fontWeight": 700
+      }
+    },
+    {
+      "op": "add",
+      "id": "sum",
+      "kind": "text",
+      "props": {
+        "x": 80,
+        "y": 130,
+        "text": "\\3/6+\\1/6=\\4/6=\\2/3",
+        "fontSize": 44,
+        "fontWeight": 700
+      }
+    }
+  ]
+}
