@@ -134,6 +134,24 @@ export default function Page() {
   const [messages, setMessages] = useState([]);
   const [wbStep, setWbStep] = useState(1);
 
+  const [wbData, setWbData] = useState(whiteboardTest);
+
+  function appendOps(newOps) {
+    setWbData(prev => {
+      const safePrev = prev && prev.board ? prev : whiteboardTest;
+      return {
+        ...safePrev,
+        ops: [...(safePrev.ops || []), ...newOps]
+      };
+    });
+  }
+
+  useEffect(() => {
+    if (wbStep === 1) setWbData(whiteboardTest);
+    else if (wbStep === 2) setWbData(whiteboardStep2);
+    else setWbData(whiteboardStep3);
+  }, [wbStep]);
+
   const [input, setInput] = useState("");
 
 
@@ -860,8 +878,11 @@ export default function Page() {
   <button onClick={() => setWbStep(1)} style={{padding:"8px 12px",borderRadius:10,border:"1px solid #333",background:"#111",color:"#fff"}}>WB Step 1</button>
   <button onClick={() => setWbStep(2)} style={{padding:"8px 12px",borderRadius:10,border:"1px solid #333",background:"#111",color:"#fff"}}>WB Step 2</button>
   <button onClick={() => setWbStep(3)} style={{padding:"8px 12px",borderRadius:10,border:"1px solid #333",background:"#111",color:"#fff"}}>AI Test Draw</button>
+  <button onClick={() => appendOps([
+    { op:"add", kind:"text", props:{ x:160, y:260, text:"Appended dynamically 🚀", color:"#34d399", fontSize:28, fontWeight:700 } }
+  ])} style={{padding:"8px 12px",borderRadius:10,border:"1px solid #333",background:"#0a0",color:"#fff"}}>Append Ops</button>
 </div>
-<Whiteboard data={wbStep === 1 ? whiteboardTest : wbStep === 2 ? whiteboardStep2 : whiteboardStep3} />
+<Whiteboard data={wbData} />
 
           <button
             onClick={() => setWbStep(s => (s === 1 ? 2 : s === 2 ? 3 : 1))}
