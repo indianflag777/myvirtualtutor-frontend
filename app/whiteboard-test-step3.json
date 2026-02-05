@@ -1,24 +1,11 @@
 {
   "type": "whiteboard.ops",
-  "version": 1,
+  "version": "1.0",
+  "board": { "width": 1024, "height": 576, "unit": "px", "background": "#0b0f19" },
+  "defaults": { "stroke": "#e6eaf2", "strokeWidth": 3, "fontFamily": "Inter", "fontSize": 26 },
   "ops": [
-    {
-      "op": "text",
-      "id": "ai-test-1",
-      "x": 140,
-      "y": 120,
-      "text": "AI is driving the whiteboard ✅",
-      "size": 34,
-      "color": "blue"
-    },
-    {
-      "op": "text",
-      "id": "ai-test-2",
-      "x": 140,
-      "y": 170,
-      "text": "Next: model outputs ops JSON",
-      "size": 26,
-      "color": "black"
-    }
+    { "op": "clear" },
+    { "op": "add", "id": "ai1", "kind": "text", "props": { "x": 80, "y": 90, "text": "AI is driving the whiteboard ✅", "color": "#60a5fa", "fontSize": 36, "fontWeight": 800 } },
+    { "op": "add", "id": "ai2", "kind": "text", "props": { "x": 80, "y": 140, "text": "Next: model outputs ops JSON", "color": "#e6eaf2", "fontSize": 24, "fontWeight": 650 } }
   ]
 }

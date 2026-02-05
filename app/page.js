@@ -135,6 +135,7 @@ export default function Page() {
   const [wbStep, setWbStep] = useState(1);
 
   const [wbData, setWbData] = useState(whiteboardTest);
+  const [wbPrompt, setWbPrompt] = useState("23 ÷ 4");
 
   function appendOps(newOps) {
     setWbData(prev => {
@@ -882,6 +883,8 @@ export default function Page() {
     { op:"add", kind:"text", props:{ x:160, y:260, text:"Appended dynamically 🚀", color:"#34d399", fontSize:28, fontWeight:700 } }
   ])} style={{padding:"8px 12px",borderRadius:10,border:"1px solid #333",background:"#0a0",color:"#fff"}}>Append Ops</button>
   <button onClick={async () => { const r = await fetch("http://127.0.0.1:3001/whiteboard/ops"); const j = await r.json(); appendOps(j.ops || []); }} style={{padding:"8px 12px",borderRadius:10,border:"1px solid #333",background:"#2563eb",color:"#fff"}}>Fetch Ops</button>
+  <input value={wbPrompt} onChange={(e) => setWbPrompt(e.target.value)} placeholder="e.g., 23 ÷ 4" style={{padding:"8px 10px",borderRadius:10,border:"1px solid #333",background:"#0b0f19",color:"#fff",minWidth:220}} />
+  <button onClick={async () => { const r = await fetch("http://127.0.0.1:3001/whiteboard/plan", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ prompt: wbPrompt, grade: 5 }) }); const j = await r.json(); if (j.say) setMessages(m => [...m, { role: "assistant", text: j.say }]); appendOps(j.ops || []); }} style={{padding:"8px 12px",borderRadius:10,border:"1px solid #333",background:"#7c3aed",color:"#fff"}}>Plan & Draw</button>
 </div>
 <Whiteboard data={wbData} />
 
