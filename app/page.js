@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-const DEBUG = process.env.NEXT_PUBLIC_DEBUG === "1";
 
-const SERVER_BASE =
-  process.env.NEXT_PUBLIC_SERVER_BASE || "http://127.0.0.1:3001";
+const DEBUG = process.env.NEXT_PUBLIC_DEBUG === "1";
+const SERVER_BASE = process.env.NEXT_PUBLIC_SERVER_BASE || "http://127.0.0.1:3001";
 
 function buildTutorInstructions({ grade, topic }) {
   return `
@@ -68,23 +67,23 @@ export default function Page() {
     setMessages((m) => [...m, { role: "user", text }]);
   }
   function addAssistant(text) {
-    setMessages((m) => {
-      const last = m[m.length - 1];
-      if (last?.role === "assistant" && last?.text === text) return m;
-      return [...m, { role: "assistant", text }];
-    });
+    setMessages((m) => [...m, { role: "assistant", text }]);
   }
 
   function sendEvent(evt) {
     const dc = dcRef.current;
     if (!dc || dc.readyState !== "open") return;
-    dc.send(JSON.stringify(evt));
+    try {
+      dc.send(JSON.stringify(evt));
+    } catch (e) {
+      console.error("sendEvent failed:", e);
+    }
   }
 
-  function handleServerEvent(e) {
+  function handleServerEvent(ev) {
     let evt;
     try {
-      evt = JSON.parse(e.data);
+      evt = JSON.parse(ev.data);
     } catch {
       return;
     }
@@ -97,6 +96,7 @@ export default function Page() {
       return;
     }
 
+    // Streamed text
     const deltaCandidates = [
       evt?.delta,
       safeGet(evt, ["text", "delta"]),
@@ -104,14 +104,13 @@ export default function Page() {
       safeGet(evt, ["response", "output_text", "delta"]),
       safeGet(evt, ["response", "output", 0, "content", 0, "delta"]),
     ];
-
     const delta = deltaCandidates.find((d) => typeof d === "string" && d.length);
 
     if (evt?.type === "response.output_text.delta" && typeof delta === "string") {
       setMessages((prev) => {
         const copy = [...prev];
         const last = copy[copy.length - 1];
-        if (last && last.role === "assistant") {
+        if (last?.role === "assistant") {
           copy[copy.length - 1] = { ...last, text: (last.text || "") + delta };
         } else {
           copy.push({ role: "assistant", text: delta });
@@ -121,31 +120,11 @@ export default function Page() {
       return;
     }
 
-    if (evt.type === "response.done") {
-  // Do nothing. We already render streamed text via response.output_text.delta.
-  // Prevents duplicate / mixed-language finalized payloads from being appended.
-  return;
-}
-      const out = safeGet(evt, ["response", "output"]) || [];
-      let finalText = "";
-
-      for (const item of out) {
-        if (item?.type === "message" && Array.isArray(item?.content)) {
-          for (const c of item.content) {
-            if (c?.type === "output_text" && typeof c?.text === "string") {
-              finalText += c.text;
-            }
-          }
-        }
-      }
-
-      if (finalText.trim()) addAssistant(finalText.trim());
-    }
+    // IMPORTANT: do NOT append response.done (prevents duplicates / mixed payloads)
+    if (evt?.type === "response.done") return;
   }
 
   async function connect() {
-    // DEBUG: connection diagnostics (temporary)
-    console.log("[MVT] connect() clicked");
     if (connecting || connected) return;
 
     setConnecting(true);
@@ -159,96 +138,68 @@ export default function Page() {
         if (audioRef.current) audioRef.current.srcObject = e.streams[0];
       };
 
+      // mic -> peer
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       for (const track of stream.getTracks()) pc.addTrack(track, stream);
 
+      // data channel for events
       const dc = pc.createDataChannel("oai-events");
-const sendEvent = (evt) => {
-  try {
-    dc.send(JSON.stringify(evt));
-  } catch (e) {
-    console.error("sendEvent failed", e);
-  }
-};
-
-dc.onopen = () => {
-  // Force session-wide instruction update (sticks for Realtime)
-  sendEvent({
-    type: "session.update",
-    session: {
-      instructions: tutorInstructions,
-    },
-  });
-
-  logSystem("Data channel open. English-only instructions applied.");
-};
-
       dcRef.current = dc;
 
-      dc.addEventListener("open", () => {
-        logSystem("Connected. Initializing tutor...");
+      dc.onmessage = (ev) => {
+        if (DEBUG) console.log("OAI RAW:", ev.data);
+        try {
+          handleServerEvent(ev);
+        } catch (err) {
+          console.log("handleServerEvent error:", err);
+        }
+      };
 
-sendEvent({
-  type: "response.create",
-  response: {
-    output_modalities: ["text"],
-    instructions: tutorInstructions,
-  },
-});
-          
+      dc.onopen = () => {
+        // FIX: include required session.type (and model) for session.update
+        sendEvent({
+          type: "session.update",
+          session: {
+            type: "realtime",
+            model: "gpt-realtime",
+            instructions: tutorInstructions,
+          },
+        });
+
+        logSystem("Data channel open. English-only instructions applied.");
+
+        // Kick off first tutor text
+        sendEvent({
+          type: "response.create",
+          response: {
+            output_modalities: ["text"],
+            instructions: tutorInstructions,
+          },
+        });
+
         setConnected(true);
         setConnecting(false);
-      });
-
-      dc.addEventListener("message", (ev) => {
-  // Log raw data first so we know events are arriving at all
-  if (DEBUG) console.log("OAI RAW:", ev.data);
-
-  // Then try to parse + handle normally
-  try {
-    handleServerEvent(ev);
-  } catch (err) {
-    console.log("handleServerEvent error:", err);
-  }
-});
+      };
 
       pc.addTransceiver("audio", { direction: "recvonly" });
+
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-// 1) Get ephemeral key from your backend
-const sessionRes = await fetch(`${SERVER_BASE}/session`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({}),
-});
-console.log("[MVT] /session status:", sessionRes.status);
-if (!sessionRes.ok) throw new Error(await sessionRes.text());
+      // Exchange SDP with your backend (server-side OpenAI call)
+      const ansRes = await fetch(`${SERVER_BASE}/webrtc/answer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/sdp" },
+        body: offer.sdp,
+      });
 
-const sessionData = await sessionRes.json();
-const EPHEMERAL_KEY = sessionData.value;
+      console.log("[MVT] /webrtc/answer status:", ansRes.status);
+      if (!ansRes.ok) throw new Error(await ansRes.text());
 
-// 2) Get SDP answer from your backend (server-side OpenAI call)
-const ansRes = await fetch(`${SERVER_BASE}/webrtc/answer`, {
-  method: "POST",
-  headers: { "Content-Type": "application/sdp" },
-  body: offer.sdp,
-});
-console.log("[MVT] /webrtc/answer status:", ansRes.status);
-if (!ansRes.ok) throw new Error(await ansRes.text());
+      const answerSdp = await ansRes.text();
+      await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
 
-const answerSdp = await ansRes.text();
-await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
-// Kickoff: ask tutor to speak once (audio-only)
-sendEvent({
-  type: "response.create",
-  response: {
-    output_modalities: ["text"],
-    instructions: tutorInstructions,
-  },
-});
-
-logSystem("Session ready. Speak or type to start.");
+      logSystem("Session ready. Speak or type to start.");
     } catch (err) {
       logSystem(`Connection failed: ${String(err?.message || err)}`);
       disconnect();
@@ -272,8 +223,6 @@ logSystem("Session ready. Speak or type to start.");
   }
 
   function sendText() {
-    console.log("[MVT] sendText clicked. connected=", connected, "connecting=", connecting, "dc=", dcRef.current?.readyState);
-    console.log("[MVT] text=", input);
     const text = input.trim();
     if (!text) return;
 
@@ -313,7 +262,13 @@ logSystem("Session ready. Speak or type to start.");
               value={grade}
               onChange={(e) => setGrade(e.target.value)}
               disabled={connected || connecting}
-              style={{ padding: 10, borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "#111b30", color: "#e8eefc" }}
+              style={{
+                padding: 10,
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.15)",
+                background: "#111b30",
+                color: "#e8eefc",
+              }}
             >
               <option value="3">3</option>
               <option value="4">4</option>
@@ -331,7 +286,13 @@ logSystem("Session ready. Speak or type to start.");
               onChange={(e) => setTopic(e.target.value)}
               disabled={connected || connecting}
               placeholder="Fractions, Decimals, Pre-algebra..."
-              style={{ padding: 10, borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "#111b30", color: "#e8eefc" }}
+              style={{
+                padding: 10,
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.15)",
+                background: "#111b30",
+                color: "#e8eefc",
+              }}
             />
           </label>
 
@@ -339,14 +300,30 @@ logSystem("Session ready. Speak or type to start.");
             <button
               onClick={connect}
               disabled={connecting}
-              style={{ padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.18)", background: connecting ? "#1a2642" : "#1f7a4a", color: "#fff", cursor: connecting ? "not-allowed" : "pointer", fontWeight: 600 }}
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.18)",
+                background: connecting ? "#1a2642" : "#1f7a4a",
+                color: "#fff",
+                cursor: connecting ? "not-allowed" : "pointer",
+                fontWeight: 600,
+              }}
             >
               {connecting ? "Connecting..." : "Start Voice + Chat Session"}
             </button>
           ) : (
             <button
               onClick={disconnect}
-              style={{ padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.18)", background: "#8b2a2a", color: "#fff", cursor: "pointer", fontWeight: 600 }}
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.18)",
+                background: "#8b2a2a",
+                color: "#fff",
+                cursor: "pointer",
+                fontWeight: 600,
+              }}
             >
               End Session
             </button>
@@ -389,8 +366,17 @@ logSystem("Session ready. Speak or type to start.");
             onChange={(e) => setInput(e.target.value)}
             disabled={!connected}
             placeholder={connected ? "Type a question (or just speak)..." : "Connect first..."}
-            onKeyDown={(e) => { if (e.key === "Enter") sendText(); }}
-            style={{ flex: 1, padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.15)", background: "#111b30", color: "#e8eefc" }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") sendText();
+            }}
+            style={{
+              flex: 1,
+              padding: 12,
+              borderRadius: 12,
+              border: "1px solid rgba(255,255,255,0.15)",
+              background: "#111b30",
+              color: "#e8eefc",
+            }}
           />
           <button
             onClick={sendText}
