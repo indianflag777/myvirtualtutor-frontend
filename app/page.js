@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Whiteboard from "./components/Whiteboard";
 import whiteboardTest from "./whiteboard-test.json";
 import whiteboardStep2 from "./whiteboard-test-step2.json";
+import whiteboardStep3 from "./whiteboard-test-step3.json";
 
 
 
@@ -855,10 +856,15 @@ export default function Page() {
 
         <div style={{ flex: 1, padding: 16, overflow: "auto" }}>
 
-          <Whiteboard data={wbStep === 1 ? whiteboardTest : whiteboardStep2} />
+          <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+  <button onClick={() => setWbStep(1)} style={{padding:"8px 12px",borderRadius:10,border:"1px solid #333",background:"#111",color:"#fff"}}>WB Step 1</button>
+  <button onClick={() => setWbStep(2)} style={{padding:"8px 12px",borderRadius:10,border:"1px solid #333",background:"#111",color:"#fff"}}>WB Step 2</button>
+  <button onClick={() => setWbStep(3)} style={{padding:"8px 12px",borderRadius:10,border:"1px solid #333",background:"#111",color:"#fff"}}>AI Test Draw</button>
+</div>
+<Whiteboard data={wbStep === 1 ? whiteboardTest : wbStep === 2 ? whiteboardStep2 : whiteboardStep3} />
 
           <button
-            onClick={() => setWbStep(s => (s === 1 ? 2 : 1))}
+            onClick={() => setWbStep(s => (s === 1 ? 2 : s === 2 ? 3 : 1))}
             style={{ margin: '8px 0', padding: '6px 12px', fontWeight: 600 }}
           >
             Next Step

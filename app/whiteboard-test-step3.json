@@ -1,0 +1,24 @@
+{
+  "type": "whiteboard.ops",
+  "version": 1,
+  "ops": [
+    {
+      "op": "text",
+      "id": "ai-test-1",
+      "x": 140,
+      "y": 120,
+      "text": "AI is driving the whiteboard ✅",
+      "size": 34,
+      "color": "blue"
+    },
+    {
+      "op": "text",
+      "id": "ai-test-2",
+      "x": 140,
+      "y": 170,
+      "text": "Next: model outputs ops JSON",
+      "size": 26,
+      "color": "black"
+    }
+  ]
+}
