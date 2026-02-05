@@ -881,6 +881,7 @@ export default function Page() {
   <button onClick={() => appendOps([
     { op:"add", kind:"text", props:{ x:160, y:260, text:"Appended dynamically 🚀", color:"#34d399", fontSize:28, fontWeight:700 } }
   ])} style={{padding:"8px 12px",borderRadius:10,border:"1px solid #333",background:"#0a0",color:"#fff"}}>Append Ops</button>
+  <button onClick={async () => { const r = await fetch("http://127.0.0.1:3001/whiteboard/ops"); const j = await r.json(); appendOps(j.ops || []); }} style={{padding:"8px 12px",borderRadius:10,border:"1px solid #333",background:"#2563eb",color:"#fff"}}>Fetch Ops</button>
 </div>
 <Whiteboard data={wbData} />
 
