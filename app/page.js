@@ -132,6 +132,7 @@ export default function Page() {
 
 
   const [messages, setMessages] = useState([]);
+  const [isResponding, setIsResponding] = useState(false);
   const [wbStep, setWbStep] = useState(1);
 
   const [wbData, setWbData] = useState(whiteboardTest);
@@ -323,7 +324,7 @@ export default function Page() {
 
     // We intentionally ignore response.done to avoid duplicate final payloads
 
-    if (evt.type === "response.done") return;
+    if (evt.type === "response.done") { setIsResponding(false); return; }
 
 
 
@@ -621,6 +622,11 @@ export default function Page() {
 
     if (!connected) return;
 
+    if (isResponding) {
+      logSystem("Please wait—tutor is still responding.");
+      return;
+    }
+
 
 
     // enforce trial limit client-side too
@@ -638,6 +644,27 @@ export default function Page() {
     setInput("");
 
     addUser(text);
+
+    // Auto-drive whiteboard from the user prompt
+    fetch("http://127.0.0.1:3001/whiteboard/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: text, grade: 5 }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        setWbStep(3);
+        if (j.say) setMessages((m) => [...m, { role: "assistant", text: j.say }]);
+        setWbData((prev) => {
+          const safePrev = prev && prev.board ? prev : whiteboardTest;
+          return { ...safePrev, ops: [{ op: "clear" }, ...(j.ops || [])] };
+        });
+
+    setIsResponding(true);
+      })
+      .catch((e) => {
+        setMessages((m) => [...m, { role: "system", text: "[whiteboard] plan failed: " + String(e) }]);
+      });
 
 
 
