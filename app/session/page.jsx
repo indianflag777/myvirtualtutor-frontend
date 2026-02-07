@@ -10,19 +10,76 @@ export default function SessionPage() {
   const [messages, setMessages] = React.useState([]);
   const boardApiRef = React.useRef(null);
 
+  // C5-B: countdown (15 minutes)
+  const [secondsRemaining, setSecondsRemaining] = React.useState(900);
+  const timerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    // start timer once
+    if (timerRef.current) return;
+
+    timerRef.current = setInterval(() => {
+      setSecondsRemaining((s) => {
+        if (s <= 0) return 0;
+        return s - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (secondsRemaining !== 0) return;
+
+    // auto-end behavior at 0
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        role: "tutor",
+        content: "Session time is up. If you’d like to continue, please start a new session.",
+      },
+    ]);
+
+    // optional: note on board
+    boardApiRef.current?.writeLines?.(["", "Session ended."]);
+  }, [secondsRemaining]);
+
   const writeStepsPaced = async (lines, delayMs = 700) => {
     for (const line of lines) {
       boardApiRef.current?.writeLines?.([line]);
-      // simple pacing delay
       await new Promise((r) => setTimeout(r, delayMs));
     }
   };
 
+  const onEnd = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+    setSecondsRemaining(0);
+  };
+
   const onSend = async (text) => {
+    if (secondsRemaining <= 0) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "tutor",
+          content: "This session has ended. Please start a new session to continue.",
+        },
+      ]);
+      return;
+    }
+
     const userMsg = { id: crypto.randomUUID(), role: "user", content: text };
     setMessages((prev) => [...prev, userMsg]);
 
-    // Local "tutor" that follows C3 prompt behavior (placeholder)
     const tutorIntro = {
       id: crypto.randomUUID(),
       role: "tutor",
@@ -30,8 +87,6 @@ export default function SessionPage() {
     };
     setMessages((prev) => [...prev, tutorIntro]);
 
-    // For demo: always write steps for anything that looks multi-step
-    // (Backend + real reasoning comes later)
     const steps = [
       `Goal: ${text}`,
       "1) Identify what is given.",
@@ -40,7 +95,6 @@ export default function SessionPage() {
       "Answer: (demo placeholder)",
     ];
 
-    // Clear board and write paced
     boardApiRef.current?.clear?.();
     await writeStepsPaced(steps, 650);
 
@@ -56,12 +110,7 @@ export default function SessionPage() {
     <SessionShell
       tutor={<TutorPanel messages={messages} onSend={onSend} />}
       whiteboard={<WhiteboardPanel apiRef={boardApiRef} />}
-      controls={
-        <SessionControlBar
-          secondsRemaining={900}
-          onEnd={() => alert("End session (placeholder)")}
-        />
-      }
+      controls={<SessionControlBar secondsRemaining={secondsRemaining} onEnd={onEnd} />}
     />
   );
 }
