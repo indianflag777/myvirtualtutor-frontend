@@ -7,6 +7,23 @@ export default function WhiteboardCanvas({ apiRef, tool }) {
   const drawing = useRef(false);
   const last = useRef({ x: 0, y: 0 });
 
+  // Cursor for tutor-written text (CSS pixel coordinates)
+  const textCursor = useRef({ x: 16, y: 28, lineH: 24 });
+
+  const fillBackground = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.width / dpr;
+    const h = canvas.height / dpr;
+
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = "#0b1020";
+    ctx.fillRect(0, 0, w, h);
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
     const parent = canvas?.parentElement;
@@ -16,15 +33,14 @@ export default function WhiteboardCanvas({ apiRef, tool }) {
       const rect = parent.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
 
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
       canvas.style.width = rect.width + "px";
       canvas.style.height = rect.height + "px";
 
-      const ctx = canvas.getContext("2d");
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = "#0b1020";
-      ctx.fillRect(0, 0, rect.width, rect.height);
+      // Reset cursor and repaint background on resize
+      textCursor.current = { x: 16, y: 28, lineH: 24 };
+      fillBackground();
     };
 
     resize();
@@ -36,13 +52,50 @@ export default function WhiteboardCanvas({ apiRef, tool }) {
 
   useEffect(() => {
     if (!apiRef) return;
+
     apiRef.current = {
       clear() {
+        textCursor.current = { x: 16, y: 28, lineH: 24 };
+        fillBackground();
+      },
+
+      writeLines(lines = []) {
         const canvas = canvasRef.current;
         if (!canvas) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.width / dpr;
+
         const ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#0b1020";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.font = "16px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial";
+        ctx.fillStyle = "#e8eef6";
+
+        const maxW = Math.max(200, w - 32);
+
+        for (const line of lines) {
+          const words = String(line).split(" ");
+          let cur = "";
+
+          for (const word of words) {
+            const test = cur ? cur + " " + word : word;
+            if (ctx.measureText(test).width > maxW) {
+              ctx.fillText(cur, textCursor.current.x, textCursor.current.y);
+              textCursor.current.y += textCursor.current.lineH;
+              cur = word;
+            } else {
+              cur = test;
+            }
+          }
+
+          if (cur) {
+            ctx.fillText(cur, textCursor.current.x, textCursor.current.y);
+            textCursor.current.y += textCursor.current.lineH;
+          }
+        }
+
+        ctx.restore();
       },
     };
   }, [apiRef]);
@@ -70,7 +123,12 @@ export default function WhiteboardCanvas({ apiRef, tool }) {
     e.preventDefault();
 
     const canvas = canvasRef.current;
+    const dpr = window.devicePixelRatio || 1;
     const ctx = canvas.getContext("2d");
+
+    // Draw in CSS pixels with correct DPR transform
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
     const p = point(e);
 
     ctx.lineCap = "round";

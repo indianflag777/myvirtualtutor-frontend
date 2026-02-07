@@ -4,8 +4,10 @@ import { useRef, useState } from "react";
 import WhiteboardToolbar from "./WhiteboardToolbar";
 import WhiteboardCanvas from "./WhiteboardCanvas";
 
-export default function WhiteboardPanel() {
-  const apiRef = useRef(null);
+export default function WhiteboardPanel({ apiRef: externalApiRef }) {
+  const internalApiRef = useRef(null);
+  const apiRef = externalApiRef || internalApiRef;
+
   const [tool, setTool] = useState("pen");
 
   return (
@@ -15,7 +17,7 @@ export default function WhiteboardPanel() {
         <WhiteboardToolbar
           tool={tool}
           setTool={setTool}
-          onClear={() => apiRef.current?.clear()}
+          onClear={() => apiRef.current?.clear?.()}
         />
       </div>
 
