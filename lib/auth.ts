@@ -4,10 +4,8 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { Resend } from "resend";
 import { prisma } from "./prisma";
 
-function mustGetEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing required env var: ${name}`);
-  return v;
+function getEnv(name: string): string | undefined {
+  return process.env[name];
 }
 
 export const authOptions: NextAuthOptions = {
@@ -15,13 +13,22 @@ export const authOptions: NextAuthOptions = {
 
   providers: [
     EmailProvider({
-      from: mustGetEnv("EMAIL_FROM"),
+      // IMPORTANT: do not read/validate env here (build-time). Keep it runtime-only.
+      from: getEnv("EMAIL_FROM") || "MyVirtualTutor <onboarding@resend.dev>",
 
       async sendVerificationRequest({ identifier, url, provider }) {
-        const resend = new Resend(mustGetEnv("RESEND_API_KEY"));
+        const apiKey = getEnv("RESEND_API_KEY");
+        const from = (provider.from as string) || "MyVirtualTutor <onboarding@resend.dev>";
+
+        if (!apiKey) {
+          console.error("[auth] Missing RESEND_API_KEY at runtime");
+          throw new Error("Missing RESEND_API_KEY");
+        }
+
+        const resend = new Resend(apiKey);
 
         await resend.emails.send({
-          from: provider.from as string,
+          from,
           to: identifier,
           subject: "Sign in to MyVirtualTutor",
           text: `Sign in to MyVirtualTutor:\n\n${url}\n\nIf you did not request this email, you can ignore it.`,
