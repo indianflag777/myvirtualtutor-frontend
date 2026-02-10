@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/session";
+
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -11,7 +15,13 @@ export default function LoginPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const res = await signIn("email", { email, redirect: false });
+
+    const res = await signIn("email", {
+      email,
+      redirect: false,
+      callbackUrl,
+    });
+
     setLoading(false);
     setSent(!res?.error);
   }
@@ -50,4 +60,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
