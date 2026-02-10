@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom global colors */
+:root {
+  --color-navy: #0F172A;
+  --color-slate: #1E293B;
+  --color-accent-blue: #3B82F6;
+  --color-mint: #22C55E;
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #CBD5E1;
+}
+
+/* Default body styles */
+body {
+  background-color: var(--color-navy);
+  color: var(--color-text-primary);
+  font-family: 'Inter', sans-serif;
+}
+
+@import './styles/animations.css';
+@import './styles/hero.css';
