@@ -12,3 +12,10 @@ next-env.d.ts
 # Local / WIP
 prisma.config.ts.bak
 
+
+# future / experimental
+app/api/usage/
+lib/useUsageEnforcer.ts
+
+# local / generated
+tsconfig.json
