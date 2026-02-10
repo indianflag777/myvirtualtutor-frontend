@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/session";
+  const [callbackUrl, setCallbackUrl] = useState("/session");
+
+  useEffect(() => {
+    // Client-only: avoids Next's Suspense requirement for useSearchParams.
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const cb = params.get("callbackUrl");
+      if (cb) setCallbackUrl(cb);
+    } catch {
+      // ignore and keep default
+    }
+  }, []);
 
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
